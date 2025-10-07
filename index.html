@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Carpool Coordinator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Lucide React icons as simple SVG components
+        const Calendar = () => (
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        );
+
+        const Car = ({ size = 16 }) => (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
+            <circle cx="7" cy="17" r="2"></circle>
+            <path d="M9 17h6"></path>
+            <circle cx="17" cy="17" r="2"></circle>
+          </svg>
+        );
+
+        const Upload = ({ size = 20 }) => (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        );
+
+        const X = ({ size = 20 }) => (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        );
+
+        const Plus = ({ size = 20 }) => (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        );
+
+        const Lock = ({ size = 32 }) => (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        );
+
+        const ArrowRight = ({ size = 16 }) => (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        );
+
+        const ArrowLeft = ({ size = 16 }) => (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        );
+
+        const CarpoolApp = () => {
+          // Password protection
+          const [isAuthenticated, setIsAuthenticated] = useState(false);
+          const [passwordInput, setPasswordInput] = useState('');
+          const PASSWORD = 'SoccerParents2025'; // ← CHANGE THIS PASSWORD!
+
+          // App state
+          const [events, setEvents] = useState([]);
+          const [drivers, setDrivers] = useState([]);
+          const [children, setChildren] = useState([]);
+          const [selectedEvent, setSelectedEvent] = useState(null);
+          const [view, setView] = useState('events');
+          
+          const [newDriverName, setNewDriverName] = useState('');
+          const [newDriverPhone, setNewDriverPhone] = useState('');
+          const [newDriverCapacity, setNewDriverCapacity] = useState('');
+          
+          const [newChildName, setNewChildName] = useState('');
+          const [newChildParentId, setNewChildParentId] = useState('');
+
+          useEffect(() => {
+            const sampleDrivers = [
+              { id: 1, name: 'Parent A', phone: '555-0101', capacity: 4 },
+              { id: 2, name: 'Parent B', phone: '555-0102', capacity: 3 }
+            ];
+            const sampleChildren = [
+              { id: 1, name: 'Child 1', parentId: 1 },
+              { id: 2, name: 'Child 2', parentId: 2 }
+            ];
+            setDrivers(sampleDrivers);
+            setChildren(sampleChildren);
+          }, []);
+
+          const parseICS = (icsText) => {
+            const lines = icsText.split('\n');
+            const parsedEvents = [];
+            let currentEvent = {};
+
+            for (let line of lines) {
+              line = line.trim();
+              
+              if (line === 'BEGIN:VEVENT') {
+                currentEvent = {};
+              } else if (line === 'END:VEVENT') {
+                if (currentEvent.summary) {
+                  parsedEvents.push({
+                    id: Date.now() + Math.random(),
+                    title: currentEvent.summary,
+                    date: currentEvent.dtstart,
+                    location: currentEvent.location || 'TBD',
+                    toAssignments: [],
+                    fromAssignments: [],
+                    rideRequests: {}
+                  });
+                }
+              } else if (line.startsWith('SUMMARY:')) {
+                currentEvent.summary = line.substring(8);
+              } else if (line.startsWith('DTSTART')) {
+                const dateStr = line.split(':')[1];
+                currentEvent.dtstart = formatDate(dateStr);
+              } else if (line.startsWith('LOCATION:')) {
+                currentEvent.location = line.substring(9);
+              }
+            }
+
+            return parsedEvents;
+          };
+
+          const formatDate = (dateStr) => {
+            const year = dateStr.substring(0, 4);
+            const month = dateStr.substring(4, 6);
+            const day = dateStr.substring(6, 8);
+            let time = '';
+            
+            if (dateStr.includes('T')) {
+              const hour = dateStr.substring(9, 11);
+              const minute = dateStr.substring(11, 13);
+              time = ` ${hour}:${minute}`;
+            }
+            
+            return `${year}-${month}-${day}${time}`;
+          };
+
+          const handleFileUpload = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                const icsContent = event.target.result;
+                const parsed = parseICS(icsContent);
+                setEvents(parsed);
+                setView('events');
+              };
+              reader.readAsText(file);
+            }
+          };
+
+          const handleAddDriver = () => {
+            if (newDriverName && newDriverPhone && newDriverCapacity) {
+              setDrivers([...drivers, { 
+                id: Date.now(), 
+                name: newDriverName, 
+                phone: newDriverPhone, 
+                capacity: parseInt(newDriverCapacity) 
+              }]);
+              setNewDriverName('');
+              setNewDriverPhone('');
+              setNewDriverCapacity('');
+            }
+          };
+
+          const handleAddChild = () => {
+            if (newChildName && newChildParentId) {
+              setChildren([...children, { 
+                id: Date.now(), 
+                name: newChildName, 
+                parentId: parseInt(newChildParentId) 
+              }]);
+              setNewChildName('');
+              setNewChildParentId('');
+            }
+          };
+
+          const removeDriver = (id) => {
+            setDrivers(drivers.filter(d => d.id !== id));
+          };
+
+          const removeChild = (id) => {
+            setChildren(children.filter(c => c.id !== id));
+          };
+
+          const toggleRideRequest = (eventId, childId, direction) => {
+            setEvents(events.map(event => {
+              if (event.id === eventId) {
+                const requests = { ...event.rideRequests };
+                const key = `${childId}-${direction}`;
+                requests[key] = !requests[key];
+                return { ...event, rideRequests: requests };
+              }
+              return event;
+            }));
+          };
+
+          const autoAssignDrivers = (event) => {
+            const needsToRide = children.filter(c => 
+              event.rideRequests[`${c.id}-to`]
+            );
+            const needsFromRide = children.filter(c => 
+              event.rideRequests[`${c.id}-from`]
+            );
+
+            const assignRides = (needsRide) => {
+              const assignments = [];
+              let currentDriver = 0;
+              let currentCapacity = 0;
+
+              needsRide.forEach(child => {
+                if (currentDriver >= drivers.length) return;
+                
+                if (currentCapacity >= drivers[currentDriver].capacity) {
+                  currentDriver++;
+                  currentCapacity = 0;
+                }
+
+                if (currentDriver < drivers.length) {
+                  const existing = assignments.find(a => a.driverId === drivers[currentDriver].id);
+                  if (existing) {
+                    existing.passengers.push(child);
+                  } else {
+                    assignments.push({
+                      driverId: drivers[currentDriver].id,
+                      driverName: drivers[currentDriver].name,
+                      passengers: [child]
+                    });
+                  }
+                  currentCapacity++;
+                }
+              });
+
+              return assignments;
+            };
+
+            const updatedEvent = {
+              ...event,
+              toAssignments: assignRides(needsToRide),
+              fromAssignments: assignRides(needsFromRide)
+            };
+
+            setEvents(events.map(e => e.id === event.id ? updatedEvent : e));
+          };
+
+          const handleLogin = () => {
+            if (passwordInput === PASSWORD) {
+              setIsAuthenticated(true);
+              setPasswordInput('');
+            } else {
+              alert('Incorrect password. Please try again.');
+              setPasswordInput('');
+            }
+          };
+
+          // Login Screen
+          if (!isAuthenticated) {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
+                <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+                  <div className="flex items-center justify-center mb-6">
+                    <div className="text-blue-500 mr-3"><Lock /></div>
+                    <h1 className="text-2xl font-bold text-gray-800">Carpool Login</h1>
+                  </div>
+                  <p className="text-gray-600 mb-6 text-center">
+                    Enter the password shared by your carpool coordinator
+                  </p>
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                    placeholder="Enter password"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleLogin}
+                    className="w-full px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold transition-colors"
+                  >
+                    Login
+                  </button>
+                  <p className="text-xs text-gray-500 mt-4 text-center">
+                    Don't have the password? Contact your carpool organizer.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          // Main App Components
+          const SetupView = () => (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-gray-800">Setup</h2>
+              
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-xl font-semibold mb-4">Drivers</h3>
+                <div className="space-y-2 mb-4">
+                  {drivers.map(driver => (
+                    <div key={driver.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div>
+                        <span className="font-medium">{driver.name}</span>
+                        <span className="text-gray-600 ml-2">({driver.phone})</span>
+                        <span className="text-gray-500 ml-2">- {driver.capacity} seats</span>
+                      </div>
+                      <button onClick={() => removeDriver(driver.id)} className="text-red-500 hover:text-red-700">
+                        <X />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input 
+                    value={newDriverName}
+                    onChange={(e) => setNewDriverName(e.target.value)}
+                    placeholder="Driver name" 
+                    className="flex-1 px-3 py-2 border rounded" 
+                  />
+                  <input 
+                    value={newDriverPhone}
+                    onChange={(e) => setNewDriverPhone(e.target.value)}
+                    placeholder="Phone" 
+                    className="w-32 px-3 py-2 border rounded" 
+                  />
+                  <input 
+                    value={newDriverCapacity}
+                    onChange={(e) => setNewDriverCapacity(e.target.value)}
+                    type="number" 
+                    placeholder="Seats" 
+                    min="1" 
+                    className="w-20 px-3 py-2 border rounded" 
+                  />
+                  <button 
+                    onClick={handleAddDriver}
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    <Plus />
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-xl font-semibold mb-4">Children</h3>
+                <div className="space-y-2 mb-4">
+                  {children.map(child => {
+                    const parent = drivers.find(d => d.id === child.parentId);
+                    return (
+                      <div key={child.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                        <div>
+                          <span className="font-medium">{child.name}</span>
+                          <span className="text-gray-600 ml-2">({parent?.name})</span>
+                        </div>
+                        <button onClick={() => removeChild(child.id)} className="text-red-500 hover:text-red-700">
+                          <X />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2">
+                  <input 
+                    value={newChildName}
+                    onChange={(e) => setNewChildName(e.target.value)}
+                    placeholder="Child name" 
+                    className="flex-1 px-3 py-2 border rounded" 
+                  />
+                  <select 
+                    value={newChildParentId}
+                    onChange={(e) => setNewChildParentId(e.target.value)}
+                    className="px-3 py-2 border rounded"
+                  >
+                    <option value="">Select parent</option>
+                    {drivers.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                  <button 
+                    onClick={handleAddChild}
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    <Plus />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+
+          const EventsView = () => (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">Events</h2>
+                <label className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 cursor-pointer flex items-center gap-2">
+                  <Upload />
+                  Import ICS
+                  <input type="file" accept=".ics" onChange={handleFileUpload} className="hidden" />
+                </label>
+              </div>
+
+              {events.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <div className="flex justify-center text-gray-400 mb-4"><Calendar /></div>
+                  <p className="text-gray-600">No events yet. Import an ICS file to get started.</p>
+                </div>
+              ) : (
+                events.map(event => (
+                  <div key={event.id} className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800">{event.title}</h3>
+                        <p className="text-gray-600">{event.date}</p>
+                        <p className="text-gray-500">{event.location}</p>
+                      </div>
+                      <button 
+                        onClick={() => setSelectedEvent(event)}
+                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Manage Rides
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          );
+
+          const EventDetailView = () => {
+            if (!selectedEvent) return null;
+
+            const event = events.find(e => e.id === selectedEvent.id) || selectedEvent;
+
+            return (
+              <div className="space-y-6">
+                <button 
+                  onClick={() => setSelectedEvent(null)}
+                  className="text-blue-500 hover:text-blue-700 font-medium"
+                >
+                  ← Back to Events
+                </button>
+
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">{event.title}</h2>
+                  <p className="text-gray-600 mb-1">{event.date}</p>
+                  <p className="text-gray-500 mb-4">{event.location}</p>
+
+                  <h3 className="text-lg font-semibold mb-3">Ride Requests</h3>
+                  <div className="space-y-2 mb-6">
+                    {children.map(child => (
+                      <div key={child.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                        <span className="font-medium">{child.name}</span>
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={event.rideRequests[`${child.id}-to`] || false}
+                              onChange={() => toggleRideRequest(event.id, child.id, 'to')}
+                              className="w-4 h-4"
+                            />
+                            <ArrowRight />
+                            <span className="text-sm">To</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={event.rideRequests[`${child.id}-from`] || false}
+                              onChange={() => toggleRideRequest(event.id, child.id, 'from')}
+                              className="w-4 h-4"
+                            />
+                            <ArrowLeft />
+                            <span className="text-sm">From</span>
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => autoAssignDrivers(event)}
+                    className="w-full px-4 py-3 bg-green-500 text-white rounded hover:bg-green-600 font-semibold"
+                  >
+                    Auto-Assign Drivers
+                  </button>
+
+                  {(event.toAssignments.length > 0 || event.fromAssignments.length > 0) && (
+                    <div className="mt-6 space-y-4">
+                      {event.toAssignments.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold mb-2 flex items-center gap-2">
+                            <ArrowRight size={20} />
+                            Rides TO Event
+                          </h4>
+                          {event.toAssignments.map((assignment, idx) => (
+                            <div key={idx} className="p-4 bg-blue-50 rounded mb-2">
+                              <div className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                                <Car />
+                                {assignment.driverName}
+                              </div>
+                              <div className="text-sm text-blue-800">
+                                Passengers: {assignment.passengers.map(p => p.name).join(', ')}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {event.fromAssignments.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold mb-2 flex items-center gap-2">
+                            <ArrowLeft size={20} />
+                            Rides FROM Event
+                          </h4>
+                          {event.fromAssignments.map((assignment, idx) => (
+                            <div key={idx} className="p-4 bg-green-50 rounded mb-2">
+                              <div className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                                <Car />
+                                {assignment.driverName}
+                              </div>
+                              <div className="text-sm text-green-800">
+                                Passengers: {assignment.passengers.map(p => p.name).join(', ')}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          };
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="mb-6 flex justify-between items-center">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-800 mb-4">Sports Carpool Coordinator</h1>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setView('events')}
+                        className={`px-4 py-2 rounded ${view === 'events' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}
+                      >
+                        Events
+                      </button>
+                      <button
+                        onClick={() => setView('setup')}
+                        className={`px-4 py-2 rounded ${view === 'setup' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}
+                      >
+                        Setup
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsAuthenticated(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+                  >
+                    Logout
+                  </button>
+                </div>
+
+                {selectedEvent ? (
+                  <EventDetailView />
+                ) : view === 'setup' ? (
+                  <SetupView />
+                ) : (
+                  <EventsView />
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CarpoolApp />);
+    </script>
+</body>
+</html>
